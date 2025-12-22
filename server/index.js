@@ -22,7 +22,6 @@
 //         throw error;
 //     }
 // })()
-
 import mongoose from "mongoose";
 import app from "./app.js";
 import dotenv from "dotenv";
@@ -30,9 +29,16 @@ import { DataBaseName } from "./constant.js";
 
 dotenv.config(); 
 
+console.log("--- ENV CHECK ---");
+console.log("URL:", process.env.MONGOOSE_URL);
+console.log("DB Name from constant:", DataBaseName);
+console.log("-----------------");
 
 const connectDB = async () => {
-    if (mongoose.connection.readyState >= 1) return; 
+    if (!process.env.MONGOOSE_URL) {
+        console.error("❌ Error: MONGOOSE_URL is still undefined!");
+        return;
+    }
     try {
         await mongoose.connect(`${process.env.MONGOOSE_URL}/${DataBaseName}`);
         console.log("MongoDB connected");
@@ -41,11 +47,5 @@ const connectDB = async () => {
     }
 };
 
-
-app.use(async (req, res, next) => {
-    await connectDB();
-    next();
-});
-
-
+connectDB();
 export default app;
