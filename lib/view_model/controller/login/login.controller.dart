@@ -38,7 +38,9 @@ class LoginController extends GetxController {
   }
 
   Future<LoginModel?> login(
-      {required String userName, required String password}) async {
+      {required String userName,
+      required String password,
+      required BuildContext context}) async {
     try {
       progressStatus.value = ProgressStatus.loading;
       isLoading.value = true;
@@ -56,6 +58,7 @@ class LoginController extends GetxController {
         progressStatus.value = ProgressStatus.success;
         Get.snackbar("Message", "Login SuccessFully",
             backgroundColor: Colors.orange);
+
         Get.toNamed(Routes.NAVBARSCREEN);
         emailController.clear();
         passwordController.clear();

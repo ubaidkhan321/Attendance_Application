@@ -217,7 +217,8 @@ class LoginPage extends GetView<LoginController> {
                     if (formKey.currentState!.validate()) {
                       controller.login(
                           userName: controller.emailController.text,
-                          password: controller.passwordController.text);
+                          password: controller.passwordController.text,
+                          context: context);
                     }
                   },
                   style: TextStyle(

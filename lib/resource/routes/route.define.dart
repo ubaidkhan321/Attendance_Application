@@ -37,7 +37,6 @@ class Pages {
             page: () => DashBoardPage(),
             binding: DashBoardBinding(),
             transition: _routeTransition);
-      case Routes.ADDTEACHER:
       case Routes.ATTENDANCE_DETAILS:
         return GetPageRoute(
             settings: setting,

@@ -5,7 +5,8 @@ import express from "express";
 
 const app = express();
 app.use(core({
-    origin: process.env.CORS_ORIGIN,
+    origin: process.env.CORS_ORIGIN || "*",
+    //origin: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
 }));
@@ -19,4 +20,4 @@ import route from "./routes/routes.js"
 import { errorMiddleware } from "./middlewear/error.middle.js";
 app.use("/api/v1",route);
 app.use(errorMiddleware);
-export{app}
+export default app
