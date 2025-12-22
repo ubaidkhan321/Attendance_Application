@@ -26,6 +26,7 @@
 import mongoose from "mongoose";
 import app from "./app.js";
 import dotenv from "dotenv";
+import { DataBaseName } from "./constant.js";
 
 dotenv.config(); 
 
@@ -33,7 +34,7 @@ dotenv.config();
 const connectDB = async () => {
     if (mongoose.connection.readyState >= 1) return; 
     try {
-        await mongoose.connect(`${process.env.MONGOOSE_URL}/${process.env.DataBaseName}`);
+        await mongoose.connect(`${process.env.MONGOOSE_URL}/${DataBaseName}`);
         console.log("MongoDB connected");
     } catch (error) {
         console.error("MongoDB Connection Error:", error);
