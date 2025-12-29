@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get/get.dart';
 import 'package:responsive_framework/responsive_framework.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
-
+  usePathUrlStrategy();
   runApp(const MyApp());
 }
 
@@ -20,7 +21,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     print("BaseUrl ${dotenv.env['BASE_URL']}");
     return GetMaterialApp(
-      title: 'Distrho',
+      title: 'Time Py AOO',
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       builder: (context, child) => ResponsiveWrapper.builder(

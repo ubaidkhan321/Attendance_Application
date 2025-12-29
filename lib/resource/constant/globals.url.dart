@@ -1,10 +1,12 @@
 // ignore_for_file: non_constant_identifier_names
 
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+//import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class Global {
   static String SECRET_KEY = "ThePublicanSecretKey";
-  static String BASE_URL = "${dotenv.env['BASE_URL']}";
+  //static String BASE_URL = "${dotenv.env['BASE_URL']}";
+  static String BASE_URL =
+      "https://attendance-application-nine.vercel.app/api/v1";
   static String loginUrl = '$BASE_URL/login';
   static String forgotpasword = '$BASE_URL/forgot-password';
   static String RESET_PASSWORD = '$BASE_URL/reset-password';

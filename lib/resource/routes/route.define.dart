@@ -56,7 +56,9 @@ class Pages {
             binding: DeleteAttendanceBinding(),
             transition: _routeTransition);
       default:
-        return null;
+        return GetPageRoute(
+            page: () => Scaffold(
+                body: Center(child: Text("Route Not Found: ${setting.name}"))));
     }
   }
 }

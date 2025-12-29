@@ -9,6 +9,7 @@ import { AttendanceRule } from "../model/attendanceRule.model.js";
 import mongoose from "mongoose";
 import crypto from "crypto";
 import moment from "moment-timezone";
+import cron from 'node-cron';
 
 const generateTokens  = async(userId)=>{
     const users = await User.findById(userId);
@@ -194,6 +195,11 @@ const addAttendanceRule = asynhandler(async (req, res) => {
 
 const checkInAttendance = asynhandler(async (req, res) => {
   const { user_Id } = req.body;
+  const currentDay = moment().tz("Asia/Karachi").format("dddd");
+
+  if (currentDay === "Sunday") {
+     throw new ApiError(400, "Today is Holiday");
+  }
 
   if (!user_Id) throw new ApiError(400, "user_Id is required");
   if (!mongoose.Types.ObjectId.isValid(user_Id))
@@ -300,90 +306,6 @@ const checkInAttendance = asynhandler(async (req, res) => {
 
 
 
-
-// const checkInAttendance = asynhandler(async (req, res) => {
-//   const { user_Id } = req.body;
-
-//   if (!user_Id) {
-//     throw new ApiError(400, "user_Id is required");
-//   }
-
-//   if (!mongoose.Types.ObjectId.isValid(user_Id)) {
-//     throw new ApiError(400, "Invalid user_Id format");
-//   }
-
-//   const user = await User.findById(user_Id);
-//   if (!user) {
-//     throw new ApiError(404, "User does not exist");
-//   }
-
-//   const todayStart = moment().utc().startOf("day").toDate();
-//   const todayEnd = moment().utc().endOf("day").toDate();
-
-//   const existingCheckIn = await Attendance.findOne({
-//     user: user_Id,
-//     status: "checkin",
-//     createdAt: { $gte: todayStart, $lte: todayEnd },
-//   });
-
-//   if (existingCheckIn) {
-//     return res.status(400).json({
-//       statusCode: 400,
-//       message: "You already checked in today",
-//     });
-//   }
-
-  
-//   const defaultRules = await AttendanceRule.find({ ruleType: "default" })
-//     .sort({ start: 1 });
-
-  
-//   const specialRules = await AttendanceRule.find({ ruleType: "special" })
-//     .sort({ start: 1 });
-
-//   const currentTime = moment().format("HH:mm");
-//   let attendanceStatus = "On Time";
-//   let appliedRuleType = "default";
-
-  
-//   const specialUserId = "692e88a450a5c580f6251320";
-
-  
-//   let ruleToUse = defaultRules;
-
-//   if (user_Id.toString() === specialUserId.toString() && specialRules.length > 0) {
-//     ruleToUse = specialRules;
-//     appliedRuleType = "special";
-//   }
-
-  
-//   for (const rule of ruleToUse) {
-//     const start = rule.start || "00:00";
-//     const end = rule.end || "23:59";
-
-//     if (currentTime >= start && currentTime <= end) {
-//       attendanceStatus = rule.label;
-//       break;
-//     }
-//   }
-
-  
-//   const newAttendance = await Attendance.create({
-//     user: user_Id,
-//     status: "checkin",
-//     note: attendanceStatus,
-//   });
-
-//   return res.status(200).json({
-//     statusCode: 200,
-//     message: `Check-in successful (${attendanceStatus})`,
-//     attendance: {
-//       ...newAttendance.toObject(),
-//       ruleType: appliedRuleType,
-//     },
-//   });
-// });
-
 const checkOutAttendance = asynhandler(async (req, res) => {
   const { user_Id } = req.body;
 
@@ -400,7 +322,6 @@ const checkOutAttendance = asynhandler(async (req, res) => {
     throw new ApiError(404, "User does not exist");
   }
 
- 
   const todayStart = moment().tz("Asia/Karachi").startOf("day").toDate();
   const todayEnd = moment().tz("Asia/Karachi").endOf("day").toDate();
 
@@ -417,14 +338,13 @@ const checkOutAttendance = asynhandler(async (req, res) => {
       message: "You cannot checkout before checking in",
     });
   }
+
   if (existingCheckIn.note === "Absent") {
-  return res.status(400).json({
-    statusCode: 400,
-    message: "You are marked absent, checkout not allowed",
-  });
-}
-   
-   
+    return res.status(400).json({
+      statusCode: 400,
+      message: "You are marked absent, checkout not allowed",
+    });
+  }
 
   
   const existingCheckOut = await Attendance.findOne({
@@ -439,15 +359,16 @@ const checkOutAttendance = asynhandler(async (req, res) => {
       message: "You already checked out today",
     });
   }
-  const CheckoutTime = moment().tz("Asia/Karachi").format("HH:mm");
-  
-  if (CheckoutTime < "13:01") {
-  return res.status(400).json({
-    statusCode: 400,
-    message: "You cannot checkout before 1:00 PM",
-  });
-}
 
+  const currentTime = moment().tz("Asia/Karachi").format("HH:mm");
+  const currentDay = moment().tz("Asia/Karachi").format("dddd");
+
+  if (currentTime < "13:01") {
+    return res.status(400).json({
+      statusCode: 400,
+      message: "You cannot checkout before 1:00 PM",
+    });
+  }
 
   
   const defaultRules = await AttendanceRule.find({
@@ -455,60 +376,72 @@ const checkOutAttendance = asynhandler(async (req, res) => {
     statusType: "checkout",
   }).sort({ start: 1 });
 
-  
   const specialRules = await AttendanceRule.find({
     ruleType: "special",
     statusType: "checkout",
   }).sort({ start: 1 });
 
-  //const currentTime = moment().format("HH:mm");
-  const currentTime = moment().tz("Asia/Karachi").format("HH:mm");
-  let attendanceStatus = "On Time";
+  let attendanceStatus = "No Rule Found";
   let appliedRuleType = "default";
-
   const specialUserId = "692e88a450a5c580f6251320"; 
 
-  
   let ruleToUse = defaultRules;
   if (user_Id.toString() === specialUserId.toString() && specialRules.length > 0) {
     ruleToUse = specialRules;
     appliedRuleType = "special";
   }
-let matched = false;
-  
-  for (const rule of ruleToUse) {
-    const start = rule.start || "00:00";
-    const end = rule.end || "23:59";
 
-    if (currentTime >= start && currentTime <= end) {
-      attendanceStatus = rule.label;
+  let matched = false;
+
+  
+  if (currentDay === "Saturday") {
+    
+    if (currentTime >= "18:00") {
+      attendanceStatus = "Late Sitting";
       matched = true;
-      break;
+    } 
+    
+    else if (currentTime >= "16:40" && currentTime <= "17:00") {
+      attendanceStatus = "On Time";
+      matched = true;
+    }
+    
+  }
+
+ 
+  if (!matched) {
+    for (const rule of ruleToUse) {
+      const start = rule.start || "00:00";
+      const end = rule.end || "23:59";
+
+      if (currentTime >= start && currentTime <= end) {
+        attendanceStatus = rule.label;
+        matched = true;
+        break;
+      }
     }
   }
 
- if (!matched) {
-  if (currentTime < "15:01") {
-    attendanceStatus = "Absent";   
-  } else {
-    attendanceStatus = "No Rule Found";
-  }
-}
-
-
   
+  if (!matched) {
+    if (currentTime >= "20:00") {
+      attendanceStatus = "Late Sitting";
+    } else if (currentTime < "15:01") {
+      attendanceStatus = "Absent";
+    } else {
+      attendanceStatus = "Early going"; 
+    }
+  }
+
+  // 4. Create Record
   const newAttendance = await Attendance.create({
     user: user_Id,
     status: "checkout",
     note: attendanceStatus,
   });
-    const createdAtPK = moment(newAttendance.createdAt)
-    .tz("Asia/Karachi")
-    .format("YYYY-MM-DD HH:mm:ss");
 
-  const updatedAtPK = moment(newAttendance.updatedAt)
-    .tz("Asia/Karachi")
-    .format("YYYY-MM-DD HH:mm:ss");
+  const createdAtPK = moment(newAttendance.createdAt).tz("Asia/Karachi").format("YYYY-MM-DD HH:mm:ss");
+  const updatedAtPK = moment(newAttendance.updatedAt).tz("Asia/Karachi").format("YYYY-MM-DD HH:mm:ss");
 
   return res.status(200).json({
     statusCode: 200,
@@ -518,9 +451,148 @@ let matched = false;
       createdAt: createdAtPK,
       updatedAt: updatedAtPK,
       ruleType: appliedRuleType,
+      day: currentDay
     },
   });
 });
+
+// const checkOutAttendance = asynhandler(async (req, res) => {
+//   const { user_Id } = req.body;
+
+//   if (!user_Id) {
+//     throw new ApiError(400, "user_Id is required");
+//   }
+
+//   if (!mongoose.Types.ObjectId.isValid(user_Id)) {
+//     throw new ApiError(400, "Invalid user_Id format");
+//   }
+
+//   const user = await User.findById(user_Id);
+//   if (!user) {
+//     throw new ApiError(404, "User does not exist");
+//   }
+
+ 
+//   const todayStart = moment().tz("Asia/Karachi").startOf("day").toDate();
+//   const todayEnd = moment().tz("Asia/Karachi").endOf("day").toDate();
+
+  
+//   const existingCheckIn = await Attendance.findOne({
+//     user: user_Id,
+//     status: "checkin",
+//     createdAt: { $gte: todayStart, $lte: todayEnd },
+//   });
+
+//   if (!existingCheckIn) {
+//     return res.status(400).json({
+//       statusCode: 400,
+//       message: "You cannot checkout before checking in",
+//     });
+//   }
+//   if (existingCheckIn.note === "Absent") {
+//   return res.status(400).json({
+//     statusCode: 400,
+//     message: "You are marked absent, checkout not allowed",
+//   });
+// }
+   
+   
+
+  
+//   const existingCheckOut = await Attendance.findOne({
+//     user: user_Id,
+//     status: "checkout",
+//     createdAt: { $gte: todayStart, $lte: todayEnd },
+//   });
+
+//   if (existingCheckOut) {
+//     return res.status(400).json({
+//       statusCode: 400,
+//       message: "You already checked out today",
+//     });
+//   }
+//   const CheckoutTime = moment().tz("Asia/Karachi").format("HH:mm");
+  
+//   if (CheckoutTime < "13:01") {
+//   return res.status(400).json({
+//     statusCode: 400,
+//     message: "You cannot checkout before 1:00 PM",
+//   });
+// }
+
+
+  
+//   const defaultRules = await AttendanceRule.find({
+//     ruleType: "default",
+//     statusType: "checkout",
+//   }).sort({ start: 1 });
+
+  
+//   const specialRules = await AttendanceRule.find({
+//     ruleType: "special",
+//     statusType: "checkout",
+//   }).sort({ start: 1 });
+
+//   //const currentTime = moment().format("HH:mm");
+//   const currentTime = moment().tz("Asia/Karachi").format("HH:mm");
+//   let attendanceStatus = "On Time";
+//   let appliedRuleType = "default";
+
+//   const specialUserId = "692e88a450a5c580f6251320"; 
+
+  
+//   let ruleToUse = defaultRules;
+//   if (user_Id.toString() === specialUserId.toString() && specialRules.length > 0) {
+//     ruleToUse = specialRules;
+//     appliedRuleType = "special";
+//   }
+// let matched = false;
+  
+//   for (const rule of ruleToUse) {
+//     const start = rule.start || "00:00";
+//     const end = rule.end || "23:59";
+
+//     if (currentTime >= start && currentTime <= end) {
+//       attendanceStatus = rule.label;
+//       matched = true;
+//       break;
+//     }
+//   }
+
+//  if (!matched) {
+//   if (currentTime < "15:01") {
+//     attendanceStatus = "Absent";   
+//   } else {
+//     attendanceStatus = "No Rule Found";
+//   }
+// }
+
+
+  
+//   const newAttendance = await Attendance.create({
+//     user: user_Id,
+//     status: "checkout",
+//     note: attendanceStatus,
+//   });
+//     const createdAtPK = moment(newAttendance.createdAt)
+//     .tz("Asia/Karachi")
+//     .format("YYYY-MM-DD HH:mm:ss");
+
+//   const updatedAtPK = moment(newAttendance.updatedAt)
+//     .tz("Asia/Karachi")
+//     .format("YYYY-MM-DD HH:mm:ss");
+
+//   return res.status(200).json({
+//     statusCode: 200,
+//     message: `Checkout successful (${attendanceStatus})`,
+//     attendance: {
+//       ...newAttendance.toObject(),
+//       createdAt: createdAtPK,
+//       updatedAt: updatedAtPK,
+//       ruleType: appliedRuleType,
+//     },
+//   });
+// });
 
 // const getuserAttendance = asynhandler(async (req, res) => {
 //   const { user_Id } = req.body;
@@ -710,6 +782,42 @@ const resetPassword = asynhandler(async (req, res) => {
   );
 });
 
+const startAbsentCronJob = () => {
+    cron.schedule('55 23 * * *', async () => {
+        const currentDay = moment().tz("Asia/Karachi").format("dddd");
+        if (currentDay === "Sunday") return;
+
+        try {
+            const todayStart = moment().tz("Asia/Karachi").startOf("day").toDate();
+            const todayEnd = moment().tz("Asia/Karachi").endOf("day").toDate();
+
+            const allUsers = await User.find({});
+
+            for (const user of allUsers) {
+                const existingRecord = await Attendance.findOne({
+                    user: user._id,
+                    createdAt: { $gte: todayStart, $lte: todayEnd }
+                });
+
+                if (!existingRecord) {
+                  
+                    await Attendance.create({
+                        user: user._id,
+                        status: "checkin",
+                        note: "Absent",
+                        ruleType: "default"
+                    });
+                }
+            }
+            console.log("Cron Job: Daily absent check completed.");
+        } catch (error) {
+            console.error("Cron Job Error:", error);
+        }
+    }, {
+        scheduled: true,
+        timezone: "Asia/Karachi"
+    });
+};
 
 
 
@@ -717,4 +825,7 @@ const resetPassword = asynhandler(async (req, res) => {
 
 
 
-export{register,loginUser,refreshTokenMethod,checkInAttendance,addAttendanceRule,checkOutAttendance,getuserAttendance,deleteOldAttendance,generateResetPassword,resetPassword}   
+
+
+
+export{register,loginUser,refreshTokenMethod,checkInAttendance,addAttendanceRule,checkOutAttendance,getuserAttendance,deleteOldAttendance,generateResetPassword,resetPassword,startAbsentCronJob}   
