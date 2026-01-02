@@ -782,16 +782,30 @@ const resetPassword = asynhandler(async (req, res) => {
   );
 });
 
+
+
 const startAbsentCronJob = () => {
-    cron.schedule('55 23 * * *', async () => {
-        const currentDay = moment().tz("Asia/Karachi").format("dddd");
-        if (currentDay === "Sunday") return;
+    
+    cron.schedule('37 18 * * *', async () => {
+        const tz = "Asia/Karachi";
+        const now = moment().tz(tz);
+        
+        
+        if (now.format("dddd") === "Sunday") {
+            console.log("Today is Sunday, skipping.");
+            return;
+        }
 
         try {
-            const todayStart = moment().tz("Asia/Karachi").startOf("day").toDate();
-            const todayEnd = moment().tz("Asia/Karachi").endOf("day").toDate();
+            console.log(`[${now.format()}] TEST Cron Job: Starting now...`);
+
+            const todayStart = moment.tz(tz).startOf("day").toDate();
+            const todayEnd = moment.tz(tz).endOf("day").toDate();
 
             const allUsers = await User.find({});
+            console.log(`Total users in DB: ${allUsers.length}`);
+
+            let count = 0;
 
             for (const user of allUsers) {
                 const existingRecord = await Attendance.findOne({
@@ -800,16 +814,17 @@ const startAbsentCronJob = () => {
                 });
 
                 if (!existingRecord) {
-                  
                     await Attendance.create({
                         user: user._id,
                         status: "checkin",
                         note: "Absent",
                         ruleType: "default"
                     });
+                    count++;
                 }
             }
-            console.log("Cron Job: Daily absent check completed.");
+            
+            console.log(`TEST Success: ${count} users marked absent.`);
         } catch (error) {
             console.error("Cron Job Error:", error);
         }
@@ -818,6 +833,8 @@ const startAbsentCronJob = () => {
         timezone: "Asia/Karachi"
     });
 };
+
+
 
 
 
