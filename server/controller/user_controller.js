@@ -342,7 +342,7 @@ const checkInAttendance = asynhandler(async (req, res) => {
         if (absentDate.format("dddd") !== "Sunday") {
           missingAbsents.push({
             user: user_Id,
-            status: "Absent",
+            status: "checkin",
             note: "Absent",
             ruleType: "default",
             createdAt: absentDate.startOf('day').toDate()
