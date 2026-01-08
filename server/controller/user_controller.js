@@ -191,7 +191,7 @@ const addAttendanceRule = asynhandler(async (req, res) => {
 
 
 
-//this comment is for tempory
+//this comment is for tempory its will retrive on next bug..
 
 // const checkInAttendance = asynhandler(async (req, res) => {
 //   const { user_Id } = req.body;
@@ -321,31 +321,31 @@ const checkInAttendance = asynhandler(async (req, res) => {
   const user = await User.findById(user_Id);
   if (!user) throw new ApiError(404, "User does not exist");
 
-  // --- START: BACKFILL ABSENT LOGIC ---
-  // 1. User ki sabse aakhri attendance entry nikalo
+  
+  
   const lastRecord = await Attendance.findOne({ user: user_Id }).sort({ createdAt: -1 });
 
   if (lastRecord) {
     const lastDate = moment(lastRecord.createdAt).tz(tz).startOf("day");
     const todayStartMoment = moment().tz(tz).startOf("day");
 
-    // Dinon ka gap check karo
+    
     const diffDays = todayStartMoment.diff(lastDate, "days");
 
-    // Agar gap 1 din se zyada hai, to beech wale din absent mark karo
+    
     if (diffDays > 1) {
       let missingAbsents = [];
       for (let i = 1; i < diffDays; i++) {
         const absentDate = moment(lastDate).add(i, "days");
 
-        // Sunday ko skip kar do
+        
         if (absentDate.format("dddd") !== "Sunday") {
           missingAbsents.push({
             user: user_Id,
-            status: "checkin",
+            status: "Absent",
             note: "Absent",
             ruleType: "default",
-            createdAt: absentDate.set({ hour: 10, minute: 0 }).toDate(), // Optional: Ek fix time set kar dein
+            createdAt: absentDate.startOf('day').toDate()
           });
         }
       }
@@ -356,7 +356,7 @@ const checkInAttendance = asynhandler(async (req, res) => {
       }
     }
   }
-  // --- END: BACKFILL ABSENT LOGIC ---
+  
 
   const todayStart = moment().tz(tz).startOf("day").toDate();
   const todayEnd = moment().tz(tz).endOf("day").toDate();
@@ -374,7 +374,7 @@ const checkInAttendance = asynhandler(async (req, res) => {
     });
   }
 
-  // ... (Baaki Rules wala logic same rahega)
+  
   const defaultRules = await AttendanceRule.find({
     ruleType: "default",
     statusType: "checkin",
@@ -424,7 +424,7 @@ const checkInAttendance = asynhandler(async (req, res) => {
     user: user_Id,
     status: "checkin",
     note: attendanceStatus,
-    ruleType: appliedRuleType, // Ye field add karna mat bhooliye ga
+    ruleType: appliedRuleType, 
   });
 
   const createdAtPK = moment(newAttendance.createdAt).tz(tz).format("YYYY-MM-DD HH:mm:ss");
