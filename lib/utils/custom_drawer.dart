@@ -15,7 +15,7 @@ class DrawerWidget extends StatelessWidget {
     final session = SessionController.instance;
     var deleteAttendancecontroller = Get.put(DeleteAttendanceController());
     return Padding(
-      padding: const EdgeInsets.only(top: 30),
+      padding: const EdgeInsets.only(top: 0),
       child: ClipPath(
         clipper: TopRightCurveClipper(),
         child: Drawer(

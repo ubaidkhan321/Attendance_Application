@@ -191,14 +191,127 @@ const addAttendanceRule = asynhandler(async (req, res) => {
 
 
 
+//this comment is for tempory
 
+// const checkInAttendance = asynhandler(async (req, res) => {
+//   const { user_Id } = req.body;
+//   const currentDay = moment().tz("Asia/Karachi").format("dddd");
+
+//   if (currentDay === "Sunday") {
+//      throw new ApiError(400, "Today is Holiday");
+//   }
+
+//   if (!user_Id) throw new ApiError(400, "user_Id is required");
+//   if (!mongoose.Types.ObjectId.isValid(user_Id))
+//     throw new ApiError(400, "Invalid user_Id format");
+
+//   const user = await User.findById(user_Id);
+//   if (!user) throw new ApiError(404, "User does not exist");
+
+//   const todayStart = moment().tz("Asia/Karachi").startOf("day").toDate();
+//   const todayEnd = moment().tz("Asia/Karachi").endOf("day").toDate();
+
+//   const existingCheckIn = await Attendance.findOne({
+//     user: user_Id,
+//     status: "checkin",
+//     createdAt: { $gte: todayStart, $lte: todayEnd },
+//   });
+
+//   if (existingCheckIn) {
+//     return res.status(400).json({
+//       statusCode: 400,
+//       message: "You already checked in today",
+//     });
+//   }
+
+//   const defaultRules = await AttendanceRule.find({
+//     ruleType: "default",
+//     statusType: "checkin",
+//   }).sort({ start: 1 });
+
+//   const specialRules = await AttendanceRule.find({
+//     ruleType: "special",
+//     statusType: "checkin",
+//   }).sort({ start: 1 });
+
+//   const currentTime = moment().tz("Asia/Karachi").format("HH:mm");
+//   const specialUserId = "692e88a450a5c580f6251320";
+
+//   let attendanceStatus = "Absent";   
+//   let appliedRuleType = "default";
+
+  
+//   const matchRule = (rules) => {
+//     for (const rule of rules) {
+//       const start = rule.start || "00:00";
+//       const end = rule.end || "23:59";
+
+//       if (currentTime >= start && currentTime <= end) {
+//         return rule.label;
+//       }
+//     }
+//     return null;
+//   };
+
+  
+//   if (user_Id.toString() === specialUserId.toString()) {
+//     const specialMatch = matchRule(specialRules);
+//     if (specialMatch) {
+//       attendanceStatus = specialMatch;
+//       appliedRuleType = "special";
+//     } else {
+      
+//       const defaultMatch = matchRule(defaultRules);
+//       if (defaultMatch) {
+//         attendanceStatus = defaultMatch;
+//         appliedRuleType = "default";
+//       }
+//     }
+//   } 
+  
+//   else {
+//     const defaultMatch = matchRule(defaultRules);
+//     if (defaultMatch) {
+//       attendanceStatus = defaultMatch;
+//       appliedRuleType = "default";
+//     }
+//   }
+
+  
+//   const newAttendance = await Attendance.create({
+//     user: user_Id,
+//     status: "checkin",
+//     note: attendanceStatus,
+//   });
+
+//   const createdAtPK = moment(newAttendance.createdAt)
+//     .tz("Asia/Karachi")
+//     .format("YYYY-MM-DD HH:mm:ss");
+
+//   const updatedAtPK = moment(newAttendance.updatedAt)
+//     .tz("Asia/Karachi")
+//     .format("YYYY-MM-DD HH:mm:ss");
+
+//   return res.status(200).json({
+//     statusCode: 200,
+//     message: `Check-in successful (${attendanceStatus})`,
+//     attendance: {
+//       ...newAttendance.toObject(),
+//       createdAt: createdAtPK,
+//       updatedAt: updatedAtPK,
+//       ruleType: appliedRuleType,
+//     },
+//   });
+// });
 
 const checkInAttendance = asynhandler(async (req, res) => {
   const { user_Id } = req.body;
-  const currentDay = moment().tz("Asia/Karachi").format("dddd");
+  const tz = "Asia/Karachi";
+  const now = moment().tz(tz);
+  const currentDay = now.format("dddd");
 
   if (currentDay === "Sunday") {
-     throw new ApiError(400, "Today is Holiday");
+    throw new ApiError(400, "Today is Holiday");
   }
 
   if (!user_Id) throw new ApiError(400, "user_Id is required");
@@ -208,8 +321,45 @@ const checkInAttendance = asynhandler(async (req, res) => {
   const user = await User.findById(user_Id);
   if (!user) throw new ApiError(404, "User does not exist");
 
-  const todayStart = moment().tz("Asia/Karachi").startOf("day").toDate();
-  const todayEnd = moment().tz("Asia/Karachi").endOf("day").toDate();
+  // --- START: BACKFILL ABSENT LOGIC ---
+  // 1. User ki sabse aakhri attendance entry nikalo
+  const lastRecord = await Attendance.findOne({ user: user_Id }).sort({ createdAt: -1 });
+
+  if (lastRecord) {
+    const lastDate = moment(lastRecord.createdAt).tz(tz).startOf("day");
+    const todayStartMoment = moment().tz(tz).startOf("day");
+
+    // Dinon ka gap check karo
+    const diffDays = todayStartMoment.diff(lastDate, "days");
+
+    // Agar gap 1 din se zyada hai, to beech wale din absent mark karo
+    if (diffDays > 1) {
+      let missingAbsents = [];
+      for (let i = 1; i < diffDays; i++) {
+        const absentDate = moment(lastDate).add(i, "days");
+
+        // Sunday ko skip kar do
+        if (absentDate.format("dddd") !== "Sunday") {
+          missingAbsents.push({
+            user: user_Id,
+            status: "checkin",
+            note: "Absent",
+            ruleType: "default",
+            createdAt: absentDate.set({ hour: 10, minute: 0 }).toDate(), // Optional: Ek fix time set kar dein
+          });
+        }
+      }
+
+      if (missingAbsents.length > 0) {
+        await Attendance.insertMany(missingAbsents);
+        console.log(`Backfilled ${missingAbsents.length} absent days for user: ${user_Id}`);
+      }
+    }
+  }
+  // --- END: BACKFILL ABSENT LOGIC ---
+
+  const todayStart = moment().tz(tz).startOf("day").toDate();
+  const todayEnd = moment().tz(tz).endOf("day").toDate();
 
   const existingCheckIn = await Attendance.findOne({
     user: user_Id,
@@ -224,6 +374,7 @@ const checkInAttendance = asynhandler(async (req, res) => {
     });
   }
 
+  // ... (Baaki Rules wala logic same rahega)
   const defaultRules = await AttendanceRule.find({
     ruleType: "default",
     statusType: "checkin",
@@ -234,42 +385,34 @@ const checkInAttendance = asynhandler(async (req, res) => {
     statusType: "checkin",
   }).sort({ start: 1 });
 
-  const currentTime = moment().tz("Asia/Karachi").format("HH:mm");
+  const currentTime = now.format("HH:mm");
   const specialUserId = "692e88a450a5c580f6251320";
 
-  let attendanceStatus = "Absent";   
+  let attendanceStatus = "Absent";
   let appliedRuleType = "default";
 
-  
   const matchRule = (rules) => {
     for (const rule of rules) {
       const start = rule.start || "00:00";
       const end = rule.end || "23:59";
-
-      if (currentTime >= start && currentTime <= end) {
-        return rule.label;
-      }
+      if (currentTime >= start && currentTime <= end) return rule.label;
     }
     return null;
   };
 
-  
   if (user_Id.toString() === specialUserId.toString()) {
     const specialMatch = matchRule(specialRules);
     if (specialMatch) {
       attendanceStatus = specialMatch;
       appliedRuleType = "special";
     } else {
-      
       const defaultMatch = matchRule(defaultRules);
       if (defaultMatch) {
         attendanceStatus = defaultMatch;
         appliedRuleType = "default";
       }
     }
-  } 
-  
-  else {
+  } else {
     const defaultMatch = matchRule(defaultRules);
     if (defaultMatch) {
       attendanceStatus = defaultMatch;
@@ -277,20 +420,15 @@ const checkInAttendance = asynhandler(async (req, res) => {
     }
   }
 
-  
   const newAttendance = await Attendance.create({
     user: user_Id,
     status: "checkin",
     note: attendanceStatus,
+    ruleType: appliedRuleType, // Ye field add karna mat bhooliye ga
   });
 
-  const createdAtPK = moment(newAttendance.createdAt)
-    .tz("Asia/Karachi")
-    .format("YYYY-MM-DD HH:mm:ss");
-
-  const updatedAtPK = moment(newAttendance.updatedAt)
-    .tz("Asia/Karachi")
-    .format("YYYY-MM-DD HH:mm:ss");
+  const createdAtPK = moment(newAttendance.createdAt).tz(tz).format("YYYY-MM-DD HH:mm:ss");
+  const updatedAtPK = moment(newAttendance.updatedAt).tz(tz).format("YYYY-MM-DD HH:mm:ss");
 
   return res.status(200).json({
     statusCode: 200,
@@ -303,7 +441,6 @@ const checkInAttendance = asynhandler(async (req, res) => {
     },
   });
 });
-
 
 
 const checkOutAttendance = asynhandler(async (req, res) => {

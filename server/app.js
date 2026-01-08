@@ -25,7 +25,7 @@
 import core from "cors";
 import cookieParser from "cookie-parser";
 import express from "express";
-import route from "./routes/routes.js"; // Top par le ayien
+import route from "./routes/routes.js"; 
 import { errorMiddleware } from "./middlewear/error.middle.js";
 
 const app = express();
@@ -48,3 +48,7 @@ app.use("/api/v1", route);
 app.use(errorMiddleware);
 
 export default app;
+
+
+
+

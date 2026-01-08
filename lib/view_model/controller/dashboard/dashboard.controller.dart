@@ -17,7 +17,7 @@ class DashboardController extends GetxController {
     userId.value = SessionController.instance.userSession.data?.sId ?? "";
   }
 
-  Future checkIn() async {
+  Future checkIn(String title) async {
     try {
       isloading.value = true;
       final results = await CheckInRepo.checkinRepo(userId: userId.value);
@@ -34,7 +34,7 @@ class DashboardController extends GetxController {
               ),
         );
 
-        _showSuccessDialog(results.attendance!);
+        _showSuccessDialog(results.attendance!, title);
         isloading.value = false;
         print("list ${attendanceData}");
         ;
@@ -54,7 +54,7 @@ class DashboardController extends GetxController {
     }
   }
 
-  void _showSuccessDialog(attendance) {
+  void _showSuccessDialog(attendance, String title) {
     final user = SessionController.instance.userSession.data;
 
     Get.dialog(
@@ -86,12 +86,12 @@ class DashboardController extends GetxController {
               ),
               const SizedBox(height: 8),
               Text(
-                "Check-in Time: ${attendance.createdAt ?? ""}",
+                "${title} Time: ${attendance.createdAt ?? ""}",
                 style: const TextStyle(fontSize: 15),
               ),
               const SizedBox(height: 12),
-              const Text(
-                "Check-in Successful",
+              Text(
+                "${title} Successful",
                 style: TextStyle(
                   fontSize: 18,
                   color: Colors.green,
@@ -106,13 +106,13 @@ class DashboardController extends GetxController {
     );
   }
 
-  Future checkOut() async {
+  Future checkOut(String title) async {
     try {
       isloading.value = true;
       final result = await CheckOutRepo.checkOutRepo(userId: userId.value);
       if (result.statusCode == 200) {
         isloading.value = false;
-        _showSuccessDialog(result.attendance!);
+        _showSuccessDialog(result.attendance!, title);
       }
     } catch (e) {
       isloading.value = false;
