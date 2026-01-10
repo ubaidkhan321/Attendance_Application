@@ -25,7 +25,7 @@
       <sub><b>Check-out</b></sub>
     </td>
     <td align="center">
-      <img src="screenshots/checkin.png" width="200" /><br />
+      <img src="screenshots/checkin.jpg" width="200" /><br />
       <sub><b>Check-in</b></sub>
     </td>
   </tr>
